@@ -1,0 +1,1 @@
+Put this in the root of your flash cart or whatever you've got alongside GrainDS.nds.
