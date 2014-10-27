@@ -1,25 +1,15 @@
 /*---------------------------------------------------------------------------------
-
 	Basic template code for starting a DS app
-
 ---------------------------------------------------------------------------------*/
-
 #include <nds.h>
 #include <stdio.h>
 #include "general.h"
 #include "blackbox.h"
 #include "graphicseng.h"
 #include "soundengine.h"
-#include "granularsampler.h"
-
 #define SAMPLERATE	32768
-#define NUMVOICES	1
-#define BUFSIZE		300
-#define SQUARESIZE  30
-#define TONROWS		5
-#define TONCOLS		8
-
 #define CIRCLEDIVS 360
+#define BUFSIZE 300
 
 void downSampleArray(int* in, int inSize, int* out, int outSize) {
 	int lastOutIndex=0;
@@ -38,23 +28,19 @@ void downSampleArray(int* in, int inSize, int* out, int outSize) {
 		out[outSize-1]=runningSum/numbersProcessed;
 	}
 }
-
 //---------------------------------------------------------------------------------
 int main(void) {
 //---------------------------------------------------------------------------------
-	SoundEngine* soundengine = new SoundEngine( SAMPLERATE, NUMVOICES );
+	SoundEngine* soundengine = new SoundEngine( SAMPLERATE );
 	SoundSetup( soundengine, SAMPLERATE, BUFSIZE );
-
-	int tempBuf[GLOBALBUFFERSIZE];
+	int* tempBuf = (int*)malloc(sizeof(int)*soundengine->granulizerBufferSize);
 	int displayBuf[CIRCLEDIVS];
-
 	int time = 0;
 	u8 squares = 10;
-
 	while(1) {
-    // -------------------- //
+   	// -------------------- //
 		// -- INPUT HANDLING -- //
-    // -------------------- //
+   	// -------------------- //
 		touchPosition touch;
 		touchRead( &touch );
 		scanKeys();
@@ -64,22 +50,26 @@ int main(void) {
 		up=keysUp();
 		if(down&KEY_UP) squares++;
 		if(down&KEY_DOWN) squares--;
+		if(down&KEY_TOUCH) soundengine->granulizer->SetPlaybackRate(0,1);
 		if(held&KEY_TOUCH) {
-			soundengine->playnote(touch.px/2,0);
+			soundengine->granulizer->SetPlaybackPos(touch.px,SCREEN_WIDTH);
+			soundengine->granulizer->SetGrainSize(touch.py);
 		}
 		if(up&KEY_TOUCH) {
+			soundengine->granulizer->SetPlaybackRate(1,1);
 			soundengine->stop(0);
 		}
 		// -------------- //
 		// -- GRAPHICS -- //
 		// -------------- //
-		for(int i=0; i<GLOBALBUFFERSIZE; i++) {
-			tempBuf[i]=abs(soundengine->globalBuffer[i]);
+		for(int i=0; i<soundengine->granulizerBufferSize; i++) {
+			tempBuf[i]=abs(soundengine->granulizerBuffer[i]);
 		}
-		downSampleArray(tempBuf,GLOBALBUFFERSIZE,displayBuf,CIRCLEDIVS);
+		downSampleArray(tempBuf,soundengine->granulizerBufferSize,displayBuf,CIRCLEDIVS);
 		for(int i=0; i<CIRCLEDIVS; i++) {
-			int radius=1000*displayBuf[i]/MAXAMP;
-			int nextRadius=1000*displayBuf[(i+1)%CIRCLEDIVS]/MAXAMP;
+			int maxRadius=700;
+			int radius=maxRadius*displayBuf[i]/MAXAMP;
+			int nextRadius=maxRadius*displayBuf[(i+1)%CIRCLEDIVS]/MAXAMP;
 			int angle=DEGREES_IN_CIRCLE*i/CIRCLEDIVS;
 			int nextAngle=DEGREES_IN_CIRCLE*((i+1)%CIRCLEDIVS)/CIRCLEDIVS;
 			int x=sinLerp(angle)*radius/DEGREES_IN_CIRCLE+(SCREEN_WIDTH/2);
